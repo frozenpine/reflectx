@@ -10,6 +10,7 @@ import (
 type fieldOffset struct {
 	offset uintptr
 	typ    reflect.Type
+	tag    string
 }
 
 func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
@@ -20,6 +21,12 @@ func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
 
 	obj := new(T)
 	objType := reflect.TypeOf(obj).Elem()
+
+	switch objType.Kind() {
+	case reflect.Struct:
+	default:
+		return nil, errors.New("object must be a struct")
+	}
 
 	fieldOffsets := make([]fieldOffset, count)
 
@@ -51,13 +58,24 @@ func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
 	}, nil
 }
 
-func FieldsByTag[T any](tag string) (func(*T) []interface{}, error) {
+type TagField struct {
+	Tag   string
+	Value interface{}
+}
+
+func FieldsByTag[T any](tag string) (func(*T) []TagField, error) {
 	if tag == "" {
 		return nil, errors.New("no tag specifed")
 	}
 
 	obj := new(T)
 	objType := reflect.TypeOf(obj).Elem()
+
+	switch objType.Kind() {
+	case reflect.Struct:
+	default:
+		return nil, errors.New("object must be a struct")
+	}
 
 	fieldOffsets := []fieldOffset{}
 
@@ -73,6 +91,7 @@ func FieldsByTag[T any](tag string) (func(*T) []interface{}, error) {
 		fieldOffsets = append(fieldOffsets, fieldOffset{
 			offset: field.Offset,
 			typ:    field.Type,
+			tag:    tagValue,
 		})
 	}
 
@@ -80,17 +99,20 @@ func FieldsByTag[T any](tag string) (func(*T) []interface{}, error) {
 		return nil, fmt.Errorf("no field found with tag[%s]", tag)
 	}
 
-	return func(data *T) []interface{} {
+	return func(data *T) []TagField {
 		basePtr := reflect.Indirect(
 			reflect.ValueOf(data),
 		).Addr().Pointer()
 
-		result := make([]interface{}, len(fieldOffsets))
+		result := make([]TagField, len(fieldOffsets))
 
 		for idx, define := range fieldOffsets {
-			result[idx] = reflect.Indirect(reflect.NewAt(
-				define.typ, unsafe.Pointer(basePtr+define.offset),
-			)).Interface()
+			result[idx] = TagField{
+				Tag: define.tag,
+				Value: reflect.Indirect(reflect.NewAt(
+					define.typ, unsafe.Pointer(basePtr+define.offset),
+				)).Interface(),
+			}
 		}
 
 		return result

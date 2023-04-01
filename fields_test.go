@@ -34,5 +34,7 @@ func TestGetFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(tagGetter(&v)...)
+	for _, f := range tagGetter(&v) {
+		t.Logf("%+v", f)
+	}
 }
