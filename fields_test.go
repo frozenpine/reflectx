@@ -11,6 +11,7 @@ func TestGetFields(t *testing.T) {
 		a string `get:"a"`
 		b string
 		c int `get:"c"`
+		d *float64
 	}
 
 	v := test{
@@ -19,11 +20,17 @@ func TestGetFields(t *testing.T) {
 		c: 123,
 	}
 
-	nameGetter, err := reflectx.FieldsByName[test]("a", "b", "c")
+	nameGetter, err := reflectx.FieldsByName[test]("a", "b", "c", "d")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(nameGetter(&v)...)
+
+	ptrGetter, err := reflectx.FieldsPtrByName[test]("a", "b", "c", "d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(ptrGetter(&v)...)
 
 	_, err = reflectx.FieldsByTag[test]("sql")
 	if err == nil {

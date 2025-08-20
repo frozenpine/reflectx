@@ -10,10 +10,11 @@ import (
 type fieldOffset struct {
 	offset uintptr
 	typ    reflect.Type
+	isPtr  bool
 	tag    string
 }
 
-func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
+func getNamedFields[T any](fields ...string) ([]fieldOffset, error) {
 	count := len(fields)
 	if count == 0 {
 		return nil, errors.New("no field name specified")
@@ -37,8 +38,60 @@ func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
 			fieldOffsets[idx] = fieldOffset{
 				offset: field.Offset,
 				typ:    field.Type,
+				isPtr:  field.Type.Kind() == reflect.Pointer,
+			}
+
+			if fieldOffsets[idx].isPtr {
+				typeName := fieldOffsets[idx].typ.
+					Elem().Kind().String()
+
+				if _, exist := typedPtrPools[typeName]; !exist {
+					return nil, errors.New(
+						"struct ptr field has no value pool registered",
+					)
+				}
 			}
 		}
+	}
+
+	return fieldOffsets, nil
+}
+
+func FieldsPtrByName[T any](fields ...string) (func(*T) []any, error) {
+	fieldOffsets, err := getNamedFields[T](fields...)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(data *T) []any {
+		basePtr := uintptr(unsafe.Pointer(data))
+
+		results := make([]interface{}, len(fieldOffsets))
+
+		for idx, define := range fieldOffsets {
+			v := reflect.NewAt(
+				define.typ, unsafe.Pointer(basePtr+define.offset),
+			)
+			if define.isPtr {
+				v = v.Elem()
+			}
+
+			r := v.Interface()
+			if v.IsNil() || v.IsZero() {
+				ptrBaseType := define.typ.Elem().Kind().String()
+				r = typedPtrPools[ptrBaseType].Get()
+			}
+			results[idx] = r
+		}
+
+		return results
+	}, nil
+}
+
+func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
+	fieldOffsets, err := getNamedFields[T](fields...)
+	if err != nil {
+		return nil, err
 	}
 
 	return func(data *T) []interface{} {
@@ -46,7 +99,7 @@ func FieldsByName[T any](fields ...string) (func(*T) []interface{}, error) {
 			reflect.ValueOf(data),
 		).Addr().Pointer()
 
-		results := make([]interface{}, count)
+		results := make([]interface{}, len(fieldOffsets))
 
 		for idx, define := range fieldOffsets {
 			results[idx] = reflect.Indirect(reflect.NewAt(
