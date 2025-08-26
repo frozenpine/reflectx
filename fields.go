@@ -43,7 +43,7 @@ func getNamedFields[T any](fields ...string) ([]fieldOffset, error) {
 
 			if fieldOffsets[idx].isPtr {
 				typeName := fieldOffsets[idx].typ.
-					Elem().Kind().String()
+					Elem().Name()
 
 				if _, exist := typedPtrPools[typeName]; !exist {
 					return nil, errors.New(

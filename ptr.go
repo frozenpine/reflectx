@@ -23,6 +23,7 @@ var (
 		reflect.Int64:   func() any { return new(int64) },
 		reflect.Float32: func() any { return new(float32) },
 		reflect.Float64: func() any { return new(float64) },
+		reflect.String:  func() any { return new(string) },
 	}
 )
 
@@ -46,6 +47,7 @@ func init() {
 		reflect.Bool, reflect.Uint8, reflect.Int8, reflect.Uint, reflect.Int,
 		reflect.Uint16, reflect.Int16, reflect.Uint32, reflect.Int32,
 		reflect.Uint64, reflect.Int64, reflect.Float32, reflect.Float64,
+		reflect.String,
 	} {
 		creatorFn := baseTypeCreator[baseType]
 		if creatorFn == nil {
